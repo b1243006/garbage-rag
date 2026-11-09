@@ -1,0 +1,403 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>清潔隊大哥｜追垃圾車</title>
+<style>
+  :root { --ink:#1d2a24; --hud:rgba(14,22,36,.78); --line:rgba(255,255,255,.14); --gold:#ffd166; --green:#4ade80; --red:#f87171; }
+  * { box-sizing:border-box; }
+  html, body { margin:0; height:100%; overflow:hidden; background:#0f1a2e; color:#fff;
+    font-family:"Noto Sans TC","Noto Sans CJK TC","PingFang TC","Microsoft JhengHei",sans-serif; }
+  #scene { position:fixed; inset:0; width:100vw; height:100vh; display:block; }
+  .hud { position:fixed; z-index:2; }
+  .panel { background:var(--hud); border:1px solid var(--line); border-radius:14px; padding:10px 14px; backdrop-filter:blur(4px); }
+  #level { top:16px; left:16px; }
+  #level .t { font-size:13px; color:#a8b6cc; }
+  #level .n { font-size:20px; font-weight:700; }
+  #level .stars { color:var(--gold); letter-spacing:2px; }
+  #timer { top:16px; left:50%; transform:translateX(-50%); width:min(460px, 52vw); text-align:center; }
+  #timer .row { display:flex; justify-content:space-between; align-items:center; font-size:14px; color:#cfd8e6; }
+  #timer .time { font-size:26px; font-weight:800; color:#fff; font-variant-numeric:tabular-nums; }
+  .bar { height:9px; background:rgba(255,255,255,.12); border-radius:999px; overflow:hidden; margin-top:6px; }
+  .bar i { display:block; height:100%; width:70%; background:linear-gradient(90deg,#ffd166,#f97316); border-radius:999px; transition:width .25s linear; }
+  #score { top:16px; right:16px; text-align:right; }
+  #score .s { font-size:24px; font-weight:800; font-variant-numeric:tabular-nums; }
+  #score .c { font-size:14px; color:var(--gold); }
+  #item { left:16px; bottom:16px; width:min(380px, 42vw); }
+  #item .t { font-size:13px; color:#a8b6cc; }
+  #item .n { font-size:22px; font-weight:800; margin:2px 0 8px; }
+  .chips { display:flex; flex-wrap:wrap; gap:6px; }
+  .chip { font-size:14px; padding:4px 10px; border-radius:999px; border:1px solid var(--line); background:rgba(255,255,255,.06); color:#cfd8e6; }
+  .chip.done { color:#86efac; border-color:rgba(74,222,128,.5); }
+  .chip.miss { color:#fca5a5; border-color:rgba(248,113,113,.5); }
+  .chip.now { color:#111; background:var(--gold); border-color:var(--gold); font-weight:700; }
+  #item .left { margin-top:8px; font-size:13px; color:#a8b6cc; }
+  #targets { left:50%; bottom:16px; transform:translateX(-50%); display:grid; grid-template-columns:repeat(4, 1fr); gap:10px; width:min(620px, 54vw); }
+  #targets button { font:inherit; color:#fff; cursor:pointer; border-radius:14px; padding:10px 6px; border:2px solid var(--line);
+    background:var(--hud); font-size:15px; font-weight:700; line-height:1.3; transition:transform .1s, border-color .2s; }
+  #targets button small { display:block; font-weight:400; font-size:12px; color:#a8b6cc; }
+  #targets button:hover { transform:translateY(-2px); border-color:var(--gold); }
+  #targets button:disabled { opacity:.45; cursor:default; transform:none; }
+  #dage { right:16px; bottom:16px; width:min(340px, 30vw); }
+  #dage .who { font-size:13px; color:#a8b6cc; margin-bottom:4px; }
+  #dage .say { font-size:16px; line-height:1.55; }
+  #dage .src { margin-top:6px; font-size:12px; color:#93c5fd; }
+  #dage.ok { border-color:rgba(74,222,128,.6); } #dage.bad { border-color:rgba(248,113,113,.7); }
+  #tag { font-size:12px; color:#8fa0b8; margin-top:4px; }
+  #start { position:fixed; z-index:3; right:16px; top:104px; font:inherit; font-weight:800; font-size:16px; padding:10px 18px; border-radius:12px;
+    border:none; cursor:pointer; color:#111; background:var(--gold); box-shadow:0 6px 20px rgba(0,0,0,.35); }
+  #result { position:fixed; inset:0; z-index:4; display:none; align-items:center; justify-content:center; background:rgba(5,10,20,.6); }
+  #result .card { width:min(460px, 90vw); background:#fff; color:var(--ink); border-radius:18px; padding:22px 24px; }
+  #result h2 { margin:0 0 6px; }
+  #result .big { font-size:34px; font-weight:800; }
+  #result ul { padding-left:18px; margin:8px 0 14px; font-size:14px; line-height:1.6; }
+  #result button { font:inherit; font-weight:700; padding:9px 16px; border-radius:10px; border:none; background:#e8590c; color:#fff; cursor:pointer; }
+  @media (max-width: 760px) {
+    #targets { grid-template-columns:repeat(2, 1fr); width:calc(100vw - 32px); bottom:150px; }
+    #item { width:calc(100vw - 32px); }
+    #dage { display:none; }
+    #timer { width:calc(100vw - 200px); }
+  }
+</style>
+<script type="importmap">
+  { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }
+</script>
+</head>
+<body>
+<canvas id="scene"></canvas>
+
+<div id="level" class="hud panel"><div class="t">第 1 關</div><div class="n">平日倒垃圾</div><div class="stars">★★☆</div><div id="tag">3D 場景雛形・Three.js</div></div>
+<div id="timer" class="hud panel">
+  <div class="row"><span>🚛 垃圾車停留</span><span class="time" id="time">00:42</span><span>♪ 給愛麗絲</span></div>
+  <div class="bar"><i id="bar"></i></div>
+</div>
+<div id="score" class="hud panel"><div class="s" id="pts">1,280</div><div class="c" id="combo">連擊 ×3</div></div>
+<button id="start">▶ 開始挑戰</button>
+
+<div id="item" class="hud panel">
+  <div class="t">手上的垃圾</div>
+  <div class="n" id="itemName">🧋 喝剩的珍奶</div>
+  <div class="chips" id="chips">
+    <span class="chip done">塑膠杯身 ✓</span><span class="chip now">杯口封膜</span><span class="chip">吸管</span><span class="chip">剩下的珍珠</span>
+  </div>
+  <div class="left" id="bagLeft">袋子裡還有 2 樣：🥤 🔋</div>
+</div>
+
+<div id="targets" class="hud">
+  <button data-t="trash">🚛 垃圾車<small>一般垃圾</small></button>
+  <button data-t="recycle">♻️ 資源回收車<small>資源回收</small></button>
+  <button data-t="food">🥬 廚餘桶<small>廚餘</small></button>
+  <button data-t="special">🧑‍🔧 隨車人員<small>特殊回收・單獨交付</small></button>
+</div>
+
+<div id="dage" class="hud panel bad">
+  <div class="who">📢 清潔隊大哥</div>
+  <div class="say" id="say">欸欸欸！封膜不能回收啦，撕下來丟垃圾車就對了。</div>
+  <div class="src" id="src">依據：doc_01 手搖飲料杯怎麼丟</div>
+</div>
+
+<div id="result"><div class="card">
+  <h2>🚛 垃圾車開走了！</h2>
+  <div class="big" id="rScore"></div>
+  <div id="rRate"></div>
+  <ul id="rMiss"></ul>
+  <button id="again">再挑戰一次</button>
+</div></div>
+
+<script type="module">
+import * as THREE from "three";
+
+// ---------- 題目（雛形用；正式版由 AI 出題工廠產生題庫 JSON） ----------
+const BAG = [
+  { name: "喝剩的珍奶", emoji: "🧋", mesh: "cup", parts: [
+    { part: "塑膠杯身", answer: "recycle", tip: "杯子先倒空、沖一下，交給資源回收車。", doc: "doc_01 手搖飲料杯怎麼丟" },
+    { part: "杯口封膜", answer: "trash", tip: "封膜不能回收啦，撕下來丟垃圾車就對了。", doc: "doc_01 手搖飲料杯怎麼丟" },
+    { part: "吸管", answer: "trash", tip: "吸管是一般垃圾，不能回收。", doc: "doc_06 不能回收的塑膠" },
+    { part: "剩下的珍珠", answer: "food", tip: "珍珠是食物殘渣，瀝乾當廚餘（依當地規定）。", doc: "doc_01、doc_12 廚餘" } ] },
+  { name: "喝完的寶特瓶", emoji: "🥤", mesh: "bottle", parts: [
+    { part: "寶特瓶", answer: "recycle", tip: "倒空、沖洗、壓扁，再交給資源回收車。", doc: "doc_05 寶特瓶與塑膠容器" } ] },
+  { name: "沒電的乾電池", emoji: "🔋", mesh: "battery", parts: [
+    { part: "乾電池", answer: "special", tip: "電池不能丟一般垃圾！單獨交給回收車人員，或拿去超商回收。", doc: "doc_10 乾電池與行動電源" } ] },
+];
+const TARGET_NAME = { trash: "垃圾車", recycle: "資源回收車", food: "廚餘桶", special: "隨車人員" };
+
+// ---------- 場景 ----------
+const canvas = document.getElementById("scene");
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+const scene = new THREE.Scene();
+scene.background = new THREE.Color("#101c33");
+scene.fog = new THREE.Fog("#101c33", 22, 46);
+const camera = new THREE.PerspectiveCamera(48, 1, 0.1, 100);
+camera.position.set(-0.4, 5.6, 13.6);
+camera.lookAt(0, 1.3, 0.6);
+
+scene.add(new THREE.HemisphereLight("#8fa8d8", "#1a1f2a", 0.75));
+const moonLight = new THREE.DirectionalLight("#c9d8ff", 0.7);
+moonLight.position.set(-8, 12, 6); moonLight.castShadow = true;
+moonLight.shadow.mapSize.set(1024, 1024);
+Object.assign(moonLight.shadow.camera, { left: -14, right: 14, top: 10, bottom: -6 });
+scene.add(moonLight);
+
+const mat = (color, opts = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.75, metalness: 0.05, ...opts });
+function box(w, h, d, color, x, y, z, opts) {
+  const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat(color, opts));
+  m.position.set(x, y, z); m.castShadow = true; m.receiveShadow = true; scene.add(m); return m;
+}
+function cyl(rt, rb, h, color, x, y, z, opts, seg = 24) {
+  const m = new THREE.Mesh(new THREE.CylinderGeometry(rt, rb, h, seg), mat(color, opts));
+  m.position.set(x, y, z); m.castShadow = true; scene.add(m); return m;
+}
+function label(text, x, y, z, bg = "rgba(14,22,36,.85)", fg = "#ffffff", scale = 1) {
+  const c = document.createElement("canvas"); const ctx = c.getContext("2d");
+  const font = "bold 44px 'Noto Sans TC','Noto Sans CJK TC','PingFang TC','Microsoft JhengHei',sans-serif";
+  ctx.font = font; const w = ctx.measureText(text).width + 48; c.width = w; c.height = 76;
+  ctx.font = font; ctx.fillStyle = bg; ctx.beginPath(); ctx.roundRect(0, 0, w, 76, 22); ctx.fill();
+  ctx.fillStyle = fg; ctx.textBaseline = "middle"; ctx.fillText(text, 24, 40);
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), depthTest: false }));
+  s.scale.set((w / 76) * 0.62 * scale, 0.62 * scale, 1); s.position.set(x, y, z); s.renderOrder = 10; scene.add(s); return s;
+}
+
+// 地面：馬路、人行道、標線
+box(60, 0.1, 9, "#2b2f37", 0, -0.05, 0);
+box(60, 0.25, 6, "#5d636c", 0, 0.08, 6.5);
+box(60, 0.3, 0.25, "#8a9098", 0, 0.1, 3.45);
+for (let x = -26; x < 27; x += 4) box(2, 0.02, 0.18, "#e5e7eb", x, 0.02, -2.6);
+box(60, 0.2, 5, "#4b5059", 0, 0.05, -6.5);
+
+// 背景房子與亮著的窗
+const houseColors = ["#384157", "#3f4a63", "#33405a", "#47506a", "#3a4660"];
+const winMat = new THREE.MeshStandardMaterial({ color: "#ffd98a", emissive: "#ffcf6b", emissiveIntensity: 0.9 });
+const darkWin = new THREE.MeshStandardMaterial({ color: "#1e2638" });
+for (let i = 0, x = -15; x < 16; i++, x += 3.4) {
+  const h = 3.2 + ((i * 37) % 5) * 0.75, w = 3.1;
+  box(w, h, 3, houseColors[i % houseColors.length], x, h / 2, -7.5);
+  box(w + 0.2, 0.25, 3.2, "#2a3247", x, h + 0.1, -7.5);
+  for (let fy = 1.1; fy < h - 0.6; fy += 1.25) for (let fx of [-0.75, 0.75]) {
+    const lit = ((i * 7 + Math.round(fy * 3) + (fx > 0 ? 1 : 0)) % 3) !== 0;
+    const win = new THREE.Mesh(new THREE.PlaneGeometry(0.62, 0.62), lit ? winMat : darkWin);
+    win.position.set(x + fx, fy, -5.99); scene.add(win);
+  }
+}
+
+// 月亮
+const moon = new THREE.Mesh(new THREE.SphereGeometry(1.1, 32, 16), new THREE.MeshBasicMaterial({ color: "#fff4cf" }));
+moon.position.set(-13, 11, -20); scene.add(moon);
+
+// 路燈
+const lamp = new THREE.PointLight("#ffd27a", 18, 14, 1.6); lamp.position.set(5.95, 4.2, 4.2); scene.add(lamp);
+const warm = new THREE.PointLight("#ffcf8a", 10, 12, 1.8); warm.position.set(-3.5, 4, 3); scene.add(warm);
+
+// 車子
+function wheel(x, z) {
+  const w = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.42, 0.3, 20), mat("#15171c"));
+  w.rotation.x = Math.PI / 2; w.position.set(x, 0.42, z); w.castShadow = true; scene.add(w);
+  const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 0.32, 12), mat("#9ca3af"));
+  hub.rotation.x = Math.PI / 2; hub.position.copy(w.position); scene.add(hub);
+}
+function truck(x, body, cab, stripe) {
+  const g = {};
+  g.body = box(3.6, 2.1, 2.1, body, x - 0.6, 1.55, 0);
+  box(3.62, 0.22, 2.12, stripe, x - 0.6, 1.0, 0);
+  g.cab = box(1.4, 1.65, 2.0, cab, x + 1.95, 1.32, 0);
+  const glass = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 0.6), new THREE.MeshStandardMaterial({ color: "#1f3b5c", emissive: "#0e2238", roughness: 0.2 }));
+  glass.position.set(x + 1.95, 1.7, 1.01); scene.add(glass);
+  const head = new THREE.MeshBasicMaterial({ color: "#fff7d6" });
+  for (const dz of [-0.65, 0.65]) { const h = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.18, 0.32), head); h.position.set(x + 2.66, 0.95, dz); scene.add(h); }
+  wheel(x - 1.6, 1.0); wheel(x + 0.2, 1.0); wheel(x + 1.95, 1.0);
+  return g;
+}
+// 垃圾車（黃色）：後方有投入口
+truck(-4.0, "#f2c230", "#f5f5f0", "#2f6f3f");
+box(0.9, 1.5, 1.9, "#3b3f46", -6.65, 1.45, 0);
+box(0.12, 0.9, 1.5, "#111317", -7.12, 1.6, 0);
+// 資源回收車（白色＋藍色）
+truck(4.2, "#eef2f7", "#f5f5f0", "#2f6f9f");
+box(3.62, 0.5, 2.12, "#2f6f9f", 3.6, 2.35, 0);
+
+// 廚餘桶（綠色）
+for (const [bx, bz] of [[-7.9, 2.4], [-7.0, 2.75]]) {
+  cyl(0.42, 0.36, 1.0, "#2f8f5b", bx, 0.75, bz);
+  cyl(0.45, 0.45, 0.1, "#256f47", bx, 1.3, bz);
+}
+// 隨車人員＋特殊回收箱
+const worker = new THREE.Mesh(new THREE.CapsuleGeometry(0.28, 0.75, 6, 12), mat("#f97316"));
+worker.position.set(-0.9, 1.0, 2.2); worker.castShadow = true; scene.add(worker);
+const headM = new THREE.Mesh(new THREE.SphereGeometry(0.2, 16, 12), mat("#e8c39e")); headM.position.set(-0.9, 1.82, 2.2); scene.add(headM);
+const cap = new THREE.Mesh(new THREE.SphereGeometry(0.22, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2), mat("#f5f5f0")); cap.position.set(-0.9, 1.88, 2.2); scene.add(cap);
+box(0.8, 0.6, 0.6, "#2563eb", 0.0, 0.5, 2.35);
+
+// 標籤
+label("🚛 垃圾車", -4.2, 3.35, 0.2, "rgba(242,194,48,.95)", "#1d2a24");
+label("♻️ 資源回收車", 4.0, 3.35, 0.2, "rgba(47,111,159,.95)");
+label("🥬 廚餘桶", -7.5, 2.15, 2.6, "rgba(47,143,91,.95)");
+label("🧑‍🔧 隨車人員", -0.5, 2.6, 2.3, "rgba(249,115,22,.95)", "#1d2a24");
+
+// 音符
+const notes = [label("♪", -2.6, 3.9, 0.4, "rgba(0,0,0,0)", "#ffd166", 0.9), label("♫", -1.6, 4.4, 0.4, "rgba(0,0,0,0)", "#ffd166", 0.9)];
+
+// 手上的垃圾（人行道上）
+const bag = new THREE.Mesh(new THREE.SphereGeometry(0.55, 20, 14), mat("#4d6b4d", { roughness: 0.9 }));
+bag.scale.set(1, 1.15, 0.9); bag.position.set(-2.4, 0.78, 5.4); bag.castShadow = true; scene.add(bag);
+const knot = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.35, 10), mat("#4d6b4d")); knot.position.set(-2.4, 1.5, 5.4); scene.add(knot);
+function makeItem(kind) {
+  const g = new THREE.Group();
+  if (kind === "cup") {
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.23, 0.85, 24), mat("#e9d5b5", { transparent: true, opacity: 0.85 }));
+    body.position.y = 0.42; g.add(body);
+    const tea = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.22, 0.35, 24), mat("#b07b4f")); tea.position.y = 0.2; g.add(tea);
+    for (let i = 0; i < 9; i++) { const p = new THREE.Mesh(new THREE.SphereGeometry(0.055, 8, 6), mat("#2a1a12")); p.position.set(Math.cos(i * 2.1) * 0.13, 0.08 + (i % 3) * 0.05, Math.sin(i * 2.1) * 0.13); g.add(p); }
+    const film = new THREE.Mesh(new THREE.CylinderGeometry(0.31, 0.31, 0.03, 24), mat("#9be7c4", { transparent: true, opacity: 0.9 })); film.position.y = 0.86; g.add(film);
+    const straw = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.9, 8), mat("#8b5cf6")); straw.position.set(0.06, 1.05, 0); straw.rotation.z = -0.25; g.add(straw);
+  } else if (kind === "bottle") {
+    const b = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.22, 0.85, 20), mat("#bfe3ff", { transparent: true, opacity: 0.7, roughness: 0.2 })); b.position.y = 0.43; g.add(b);
+    const n = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.18, 0.2, 16), mat("#bfe3ff", { transparent: true, opacity: 0.7 })); n.position.y = 0.95; g.add(n);
+    const c = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.085, 0.08, 16), mat("#2563eb")); c.position.y = 1.08; g.add(c);
+  } else {
+    const b = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 0.42, 16), mat("#1f2937")); b.position.y = 0.21; g.add(b);
+    const t = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 0.12, 16), mat("#d97706", { metalness: 0.6 })); t.position.y = 0.42; g.add(t);
+  }
+  g.traverse(o => { if (o.isMesh) o.castShadow = true; });
+  scene.add(g); return g;
+}
+const items = { cup: makeItem("cup"), bottle: makeItem("bottle"), battery: makeItem("battery") };
+items.cup.position.set(-0.7, 0.2, 5.3);
+items.bottle.position.set(0.55, 0.2, 5.5);
+items.battery.position.set(1.5, 0.2, 5.6);
+const ring = new THREE.Mesh(new THREE.TorusGeometry(0.55, 0.05, 8, 40), new THREE.MeshBasicMaterial({ color: "#ffd166" }));
+ring.rotation.x = Math.PI / 2; ring.position.set(-0.7, 0.24, 5.3); scene.add(ring);
+
+// 丟出去的軌跡（預覽：封膜 → 垃圾車）
+const TARGET_POS = {
+  trash: new THREE.Vector3(-6.9, 2.0, 0.4), recycle: new THREE.Vector3(3.0, 2.6, 0.6),
+  food: new THREE.Vector3(-7.4, 1.5, 2.6), special: new THREE.Vector3(0.0, 1.0, 2.35),
+};
+let arcLine = null;
+function drawArc(from, to) {
+  if (arcLine) scene.remove(arcLine);
+  const mid = from.clone().lerp(to, 0.5); mid.y += 3.2;
+  const curve = new THREE.QuadraticBezierCurve3(from, mid, to);
+  const geo = new THREE.BufferGeometry().setFromPoints(curve.getPoints(40));
+  arcLine = new THREE.Line(geo, new THREE.LineDashedMaterial({ color: "#ffd166", dashSize: 0.25, gapSize: 0.18 }));
+  arcLine.computeLineDistances(); scene.add(arcLine); return curve;
+}
+const flyer = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.04, 20), mat("#9be7c4", { emissive: "#3fbf8f", emissiveIntensity: 0.5 }));
+scene.add(flyer);
+const previewCurve = drawArc(new THREE.Vector3(-0.7, 1.2, 5.3), TARGET_POS.trash);
+flyer.position.copy(previewCurve.getPoint(0.55));
+
+// ---------- 遊戲邏輯（雛形） ----------
+const $ = id => document.getElementById(id);
+const state = { running: false, t: 60, score: 0, combo: 0, item: 0, part: 0, results: [], flight: null };
+function fmt(t) { const s = Math.max(0, Math.ceil(t)); return `00:${String(s).padStart(2, "0")}`; }
+function renderHUD() {
+  $("time").textContent = fmt(state.t); $("bar").style.width = `${(state.t / 60) * 100}%`;
+  $("pts").textContent = state.score.toLocaleString(); $("combo").textContent = `連擊 ×${state.combo}`;
+  const it = BAG[state.item];
+  if (!it) return;
+  $("itemName").textContent = `${it.emoji} ${it.name}`;
+  $("chips").innerHTML = it.parts.map((p, i) => {
+    const r = state.results.find(x => x.item === state.item && x.part === i);
+    const cls = r ? (r.ok ? "done" : "miss") : (i === state.part ? "now" : "");
+    return `<span class="chip ${cls}">${p.part}${r ? (r.ok ? " ✓" : " ✗") : ""}</span>`;
+  }).join("");
+  const rest = BAG.slice(state.item + 1).map(b => b.emoji).join(" ");
+  $("bagLeft").textContent = rest ? `袋子裡還有 ${BAG.length - state.item - 1} 樣：${rest}` : "這是最後一樣！";
+  Object.entries(items).forEach(([k, m]) => { m.visible = BAG.slice(state.item).some(b => b.mesh === k); });
+  const cur = items[it.mesh]; ring.position.set(cur.position.x, 0.24, cur.position.z);
+}
+function say(text, src, ok) {
+  $("say").textContent = text; $("src").textContent = `依據：${src}`;
+  $("dage").className = `hud panel ${ok ? "ok" : "bad"}`;
+}
+function throwTo(target) {
+  if (!state.running || state.item >= BAG.length) return;
+  if (state.flight) { state.flight = null; flyer.visible = false; }  // 上一個還在空中就直接完成，可以連續丟
+  const it = BAG[state.item], p = it.parts[state.part];
+  const ok = p.answer === target;
+  state.combo = ok ? state.combo + 1 : 0;
+  state.score += ok ? 100 + 20 * (state.combo - 1) : 0;
+  state.results.push({ item: state.item, part: state.part, ok, name: `${it.name}・${p.part}`, answer: p.answer, doc: p.doc });
+  say(ok ? `讚啦！${p.tip}` : `欸欸欸，不是${TARGET_NAME[target]}啦！${p.tip}`, p.doc, ok);
+  const from = items[it.mesh].position.clone().add(new THREE.Vector3(0, 1, 0));
+  state.flight = { curve: drawArc(from, TARGET_POS[target]), t: 0 };
+  flyer.visible = true;
+  state.part++;
+  if (state.part >= it.parts.length) { state.part = 0; state.item++; }
+  if (state.item >= BAG.length) setTimeout(finish, 900);
+  renderHUD();
+}
+function finish() {
+  if (!state.running) return;
+  state.running = false; stopMusic();
+  document.querySelectorAll("#targets button").forEach(b => b.disabled = true);
+  const okN = state.results.filter(r => r.ok).length, total = BAG.reduce((n, b) => n + b.parts.length, 0);
+  const stars = okN === total ? "★★★" : okN >= total * 0.6 ? "★★☆" : "★☆☆";
+  $("rScore").textContent = `${state.score.toLocaleString()} 分 ${stars}`;
+  $("rRate").textContent = `答對 ${okN} / ${total} 個部件`;
+  const miss = state.results.filter(r => !r.ok);
+  $("rMiss").innerHTML = miss.length ? miss.map(r => `<li>錯題本：${r.name} → 應該是「${TARGET_NAME[r.answer]}」（${r.doc}）</li>`).join("")
+                                     : "<li>全對！大哥說你可以來清潔隊上班了。</li>";
+  $("result").style.display = "flex";
+}
+function start() {
+  Object.assign(state, { running: true, t: 60, score: 0, combo: 0, item: 0, part: 0, results: [], flight: null });
+  if (arcLine) { scene.remove(arcLine); arcLine = null; } flyer.visible = false;
+  $("result").style.display = "none"; $("start").style.display = "none";
+  document.querySelectorAll("#targets button").forEach(b => b.disabled = false);
+  say("垃圾車來了！把手上的東西拆開，丟到對的地方。", "第七週整理的 18 篇垃圾分類資料", true);
+  renderHUD(); playMusic();
+}
+document.querySelectorAll("#targets button").forEach(b => b.addEventListener("click", () => throwTo(b.dataset.t)));
+$("start").addEventListener("click", start);
+$("again").addEventListener("click", start);
+
+// 給愛麗絲（貝多芬，公有領域）：用 Web Audio 合成開頭旋律
+let audio = null, musicTimer = null;
+const MELODY = [["E5",1],["D#5",1],["E5",1],["D#5",1],["E5",1],["B4",1],["D5",1],["C5",1],["A4",3],
+  ["C4",1],["E4",1],["A4",1],["B4",3],["E4",1],["G#4",1],["B4",1],["C5",3]];
+const FREQ = n => { const m = n.match(/([A-G])(#?)(\d)/); const s = { C:-9, D:-7, E:-5, F:-4, G:-2, A:0, B:2 }[m[1]] + (m[2] ? 1 : 0); return 440 * 2 ** ((s + (Number(m[3]) - 4) * 12) / 12); };
+function playMusic() {
+  try {
+    audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+    const beat = 0.2; let t = audio.currentTime + 0.05;
+    for (const [n, len] of MELODY) {
+      const o = audio.createOscillator(), g = audio.createGain();
+      o.type = "triangle"; o.frequency.value = FREQ(n);
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.12, t + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t + beat * len);
+      o.connect(g).connect(audio.destination); o.start(t); o.stop(t + beat * len + 0.05); t += beat * len;
+    }
+    musicTimer = setTimeout(() => state.running && playMusic(), (t - audio.currentTime) * 1000 + 400);
+  } catch (e) { /* 沒有聲音也能玩 */ }
+}
+function stopMusic() { clearTimeout(musicTimer); }
+
+// ---------- 動畫 ----------
+function resize() {
+  const w = window.innerWidth, h = window.innerHeight;
+  renderer.setSize(w, h); camera.aspect = w / h; camera.updateProjectionMatrix();
+}
+window.addEventListener("resize", resize); resize();
+const clock = new THREE.Clock();
+renderer.setAnimationLoop(() => {
+  const dt = Math.min(clock.getDelta(), 0.05), t = clock.elapsedTime;
+  notes.forEach((n, i) => { n.position.y = 3.9 + i * 0.5 + Math.sin(t * 2 + i) * 0.15; });
+  ring.scale.setScalar(1 + Math.sin(t * 4) * 0.06);
+  if (state.running) {
+    state.t -= dt; if (state.t <= 0) { state.t = 0; finish(); }
+    $("time").textContent = fmt(state.t); $("bar").style.width = `${(state.t / 60) * 100}%`;
+  }
+  if (state.flight) {
+    state.flight.t += dt * 1.6;
+    flyer.position.copy(state.flight.curve.getPoint(Math.min(state.flight.t, 1)));
+    flyer.rotation.x += dt * 8;
+    if (state.flight.t >= 1) { state.flight = null; flyer.visible = false; if (arcLine) { scene.remove(arcLine); arcLine = null; } }
+  }
+  renderer.render(scene, camera);
+});
+window.__ready = true;
+</script>
+</body>
+</html>
